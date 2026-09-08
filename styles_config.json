@@ -1,0 +1,46 @@
+{
+  "fonts": {
+    "font_name": "Times New Roman",
+    "font_size_body": 14.0,
+    "font_size_h1": 16.0,
+    "font_size_h2": 14.0,
+    "font_size_h3": 14.0
+  },
+  "alignment": {
+    "paragraph_align": "justify",
+    "bullet_align": "justify",
+    "numbered_align": "justify",
+    "heading_align": "left",
+    "heading_h1_align": "left",
+    "heading_h2_align": "left",
+    "heading_h3_align": "left"
+  },
+  "paragraph_format": {
+    "line_spacing": 1.15,
+    "paragraph_indent_cm": 1.25,
+    "h1_page_break_before": true
+  },
+  "page_margins": {
+    "margin_top_cm": 2.0,
+    "margin_bottom_cm": 2.0,
+    "margin_left_cm": 3.0,
+    "margin_right_cm": 1.0
+  },
+  "page_numbering": {
+    "page_numbering": true,
+    "page_number_align": "center",
+    "page_number_size": 12.0,
+    "page_number_diff_first": true
+  },
+  "tables": {
+    "table_caption_position": "above",
+    "table_caption_align": "center",
+    "table_border_color": "000000",
+    "table_border_sz": "8"
+  },
+  "images": {
+    "images_dir": "images",
+    "image_caption_position": "below",
+    "image_caption_align": "center"
+  }
+}
