@@ -1,192 +1,104 @@
 # Document Builder
 
-Модульний генератор академічних та технічних `.docx` документів будь-якого обсягу (від коротких звітів до робіт на 100+ сторінок). Забезпечує оформлення за академічними стандартами (ДСТУ), нативні математичні формули Word (OpenXML oMath), автоматичну нумерацію, таблиці, ілюстрації та підтримку інлайн-розмітки Markdown.
+Скіл для ШІ-агентів (Claude Code, Antigravity та інших), який створює документи Word і PDF. Агент пише лише зміст простими викликами `doc.add_*`, а шрифти, відступи, нумерацію й підписи бере з одного файлу `styles_config.json`.
 
----
+Підходить для документів будь-якого обсягу: від однієї сторінки до сотні з лишком.
 
-## Використання у ШІ-агентах (Antigravity IDE, Cursor, Claude Code тощо)
+## Можливості
 
-### 1. Підключення скіла
+- Титульна сторінка, заголовки, абзаци, списки, зміст.
+- Автоматична нумерація рисунків, таблиць і лістингів, посилання на них за ключем (`doc.ref("fig", "schema")`).
+- Лістинги прямо з файлів коду: потрібний фрагмент між маркерами, без коментарів.
+- Зображення в реальному розмірі, які не виходять за поля сторінки.
+- Формули LaTeX, що стають нативними формулами Word.
+- Inline Markdown у тексті: `**жирний**`, `*курсив*`, `` `код` ``, `$x^2$`.
+- Заповнення готового шаблону `.docx`: вставка в потрібний розділ, заміна тексту, заповнення таблиць.
+- Конвертація в PDF і перевірка верстки: висячі підписи, пропуски в нумерації, забуті заглушки.
 
-Репозиторій оформлено як повноцінний агентний скіл (містить маніфест `SKILL.md` з метаданими та інструкціями для мовної моделі).
+## Встановлення
 
-- **Google Antigravity IDE**:
-  - **Глобальне підключення**: скопіюйте теку зі скілом до глобального каталогу конфігурації:
-    ```
-    ~/.gemini/config/skills/document-builder-skill/
-    ```
-  - **Для конкретного робочого простору**: розмістіть теку у корені вашого репозиторію:
-    ```
-    .agents/skills/document-builder-skill/
-    ```
-  Агент автоматично виявляє навичку за маніфестом `SKILL.md` та активує її при отриманні запитів на створення або форматування DOCX-документів.
+1. Встановіть Python 3.9 або новіший.
 
-- **Claude Code та CLI-агенти**:
-  - Використовуйте репозиторій як робочий простір або підключіть інструкції через системний файл контексту (наприклад, `CLAUDE.md`).
+2. Скопіюйте папку `document-builder/` у каталог скілів вашого агента:
 
----
+   | Агент | Куди копіювати |
+   |---|---|
+   | Claude Code | `~/.claude/skills/document-builder/` |
+   | Antigravity | `~/.gemini/config/skills/document-builder/` |
 
-### 2. Пайплайн роботи агента над документом
+   Якщо скіл лежить деінде, задайте шлях до нього у змінній середовища `DOCUMENT_BUILDER_PATH`.
 
-Коли ви ставите агенту завдання створити звіт чи документацію (наприклад, *"Згенеруй науковий звіт на 30 сторінок за темою Х з формулами та таблицями"*), процес виконується у кілька чітких кроків:
+3. Для PDF потрібен Microsoft Word або LibreOffice.
 
-1. **Планування структури**:
-   Агент формує зміст та список розділів (наприклад, Вступ, Огляд літератури, Методологія, Результати, Висновки).
+Python-пакети встановлювати вручну не обов'язково. Перед першою збіркою в сесії агент сам перевіряє `python-docx`, `lxml`, `latex2mathml`, `matplotlib` і `Pillow` і, якщо чогось бракує, встановлює їх із `requirements.txt` (агент може попросити дозволу на виконання команди). Ця перевірка обов'язкова: без `lxml`, `latex2mathml`, `matplotlib` чи `Pillow` рушій не падає, а мовчки псує формули й розміри зображень.
 
-2. **Модульна генерація розділів (`chapters/`)**:
-   - Щоб уникнути вичерпання контекстного вікна та обриву генерації тексту на великих обсягах, агент створює окремі файли:
-     - `chapters/chapter1.py`
-     - `chapters/chapter2.py`
-     - `chapters/chapter3.py`
-   - Кожен розділ реалізує єдину функцію `def render(doc):`.
-   - Агент використовує лаконічний API `doc.add_*` замість написання низькорівневого коду `python-docx` або ручного збирання XML.
-
-3. **Підключення до оркестратора (`DocumentBuilder.py`)**:
-   Агент реєструє послідовний виклик створених модулів:
-   ```python
-   from chapters.chapter1 import render as render_ch1
-   from chapters.chapter2 import render as render_ch2
-
-   # ...
-   render_ch1(doc)
-   render_ch2(doc)
-   ```
-
-4. **Автоматична збірка через термінал**:
-   Агент виконує команду збирання та перевіряє код повернення:
-   ```bash
-   python DocumentBuilder.py "Результат.docx"
-   ```
-
-5. **Зміна стилів без втручання в код**:
-   Якщо користувачу потрібно змінити гарнітуру, розміри полів чи міжрядковий інтервал, агент або користувач редагує лише `styles_config.json`. Всі розділи автоматично приймають нові стилі при наступному запуску.
-
----
-
-### 3. Чому цей скіл ефективний для LLM
-
-- **Збереження контекстного вікна**: Поетапне написання окремих файлів розділів дозволяє генерувати великі роботи (100+ сторінок) без втрати якості та деградації пам'яті моделі.
-- **Відсутність галюцинацій з OpenXML**: Моделям важко вручну коректно розраховувати відступи у `twips`, малювати межі таблиць або налаштовувати `cantSplit`. Рушій бере всю низькорівневу рутину на себе.
-- **Локалізоване редагування**: Якщо необхідно внести правки лише в одну таблицю чи формулу, агент змінює відповідний файл у `chapters/`, не витрачаючи токени на переписування решти документа.
-- **Захист від збоїв блокування Windows**: При відкритому у Microsoft Word документі агент не отримає фатальний `PermissionError`, оскільки рушій автоматично збереже файл як `_new.docx`.
-
----
-
-## Довідник API (`DocumentStyles`)
-
-Клас `DocumentStyles` надає високорівневі методи без необхідності прямої роботи з XML чи `twips`.
-
-### Текст і структура
-
-| Метод | Параметри за замовчуванням | Опис |
-|---|---|---|
-| `add_heading` | `text, level=1, page_break_before=None, align=None` | Заголовки H1–H3. Захищені від відриву від наступного абзацу (`keep_with_next`). Для H1 автоматично додається розрив сторінки (крім найпершого). |
-| `add_paragraph` | `text, bold=False, italic=False, align=None, indent=True, space_after_pt=0, parse_markdown=True` | Абзац із абзацним відступом (1.25 см) та автоматичним парсингом Markdown. |
-| `add_formatted_paragraph` | `runs, align=None, indent=True, space_after_pt=0` | Абзац із ручним списком фрагментів: `[("текст", bold, italic, font, size, color), ...]`. |
-| `add_bullet` | `text, bullet_char="•", parse_markdown=True, align=None` | Пункт нативного маркованого списку Word (`List Bullet`). |
-| `add_numbered` | `text, parse_markdown=True, align=None` | Пункт нативного нумерованого списку Word (`List Number`). |
-| `add_page_break` | — | Вставка розриву сторінки. |
-| `add_toc` | `title="ЗМІСТ"` | Вставка динамічного поля автоматичного змісту Word (`TOC`). |
-
-### Формули, таблиці, графіка та код
-
-| Метод | Параметри | Опис |
-|---|---|---|
-| `add_formula` | `formula, number=None, space_before_pt=6, space_after_pt=8` | Вставка формули LaTeX або MathML. Конвертує у нативний об'єкт Word `oMath`. Якщо задано `number` — центруються формули та вирівнюється номер праворуч у дужках `(1.1)`. |
-| `add_table` | `headers, rows, caption=None, col_widths_cm=None, caption_position=None, caption_align=None` | Таблиця з межами, внутрішніми відступами, захистом від розриву рядків між сторінками (`cantSplit`) та повторенням шапки на нових сторінках (`tblHeader`). |
-| `add_image` | `image_name_or_path, caption=None, width_cm=None, caption_position=None, caption_align=None` | Зображення з папки `images/` або довільного шляху. Центрується, масштабується під ширину робочої області аркуша та має підпис. |
-| `add_code_block` | `code, caption=None` | Лістинг коду (моноширинний шрифт Consolas, інтервал 1.0, вимкнена перевірка орфографії `w:noProof`). |
-| `save` | `file_path` | Збереження документа з захистом від блокування відкритим файлом у MS Word. |
-
----
-
-## Форматування тексту та формул
-
-### Вбудована Markdown-розмітка
-У методах `add_paragraph`, `add_bullet`, `add_numbered` та у комірках `add_table` підтримується інлайн-форматування:
-- `**жирний**` — напівжирний шрифт.
-- `*курсив*` — курсив.
-- `***жирний курсив***` — жирний курсив.
-- `` `код` `` — моноширинний шрифт Consolas без підкреслення слів як помилок.
-- `$інлайн_формула$` — вбудована формула Word (наприклад, `$x_i$` чи `$\sqrt{a^2 + b^2}$`).
-
-### Нативні математичні формули
-Метод `add_formula` конвертує вирази LaTeX у редаговані об'єкти Word (шрифт *Cambria Math*, вертикальні дроби, корені, індекси, інтеграли).
-
-Передбачено трирівневу систему обробки формул:
-1. **OpenXML oMath** (через `latex2mathml` та `MML2OMML.XSL`) — основний нативний режим.
-2. **Matplotlib PNG** (якщо XSLT недоступний) — формули рендеряться у чіткі прозорі векторно-растрові зображення.
-3. **Текстовий fallback** — резервний вивід виразу у разі відсутності додаткових бібліотек.
-
----
-
-## Налаштування стилів (`styles_config.json`)
-
-Оформлення документа відокремлене від коду. Зміна шрифтів, полів та відступів виконується у файлі `styles_config.json` без редагування скриптів Python:
-
-```json
-{
-  "fonts": {
-    "font_name": "Times New Roman",
-    "font_size_body": 14.0,
-    "font_size_h1": 16.0,
-    "font_size_h2": 14.0,
-    "font_size_h3": 14.0
-  },
-  "alignment": {
-    "paragraph_align": "justify",
-    "bullet_align": "justify",
-    "numbered_align": "justify",
-    "heading_align": "left",
-    "heading_h1_align": "left",
-    "heading_h2_align": "left",
-    "heading_h3_align": "left"
-  },
-  "paragraph_format": {
-    "line_spacing": 1.15,
-    "paragraph_indent_cm": 1.25,
-    "h1_page_break_before": true
-  },
-  "page_margins": {
-    "margin_top_cm": 2.0,
-    "margin_bottom_cm": 2.0,
-    "margin_left_cm": 3.0,
-    "margin_right_cm": 1.0
-  },
-  "page_numbering": {
-    "page_numbering": true,
-    "page_number_align": "center",
-    "page_number_size": 12.0,
-    "page_number_diff_first": true
-  },
-  "tables": {
-    "table_caption_position": "above",
-    "table_caption_align": "center",
-    "table_border_color": "000000",
-    "table_border_sz": "8"
-  },
-  "images": {
-    "images_dir": "images",
-    "image_caption_position": "below",
-    "image_caption_align": "center"
-  }
-}
-```
-
----
-
-## Архітектура репозиторію
+Якщо хочете встановити все заздалегідь:
 
 ```
-document-builder-skill/
-├── DocumentBuilder.py    # Головний оркестратор збирання документа
-├── DocumentStyles.py     # OpenXML-рушій оформлення та публічний API
-├── styles_config.json    # Конфігурація стилів (шрифти, відступи, поля)
-├── MML2OMML.XSL          # Таблиця стилів XSLT для конвертації MathML -> Word oMath
-├── requirements.txt      # Залежності проєкту
-├── chapters/             # Модулі окремих розділів для великих робіт
-│   ├── chapter1.py       # render(doc) для Розділу 1
-│   └── chapter2.py       # render(doc) для Розділу 2
-└── images/               # Графічні матеріали (схеми, діаграми, графіки)
-    └── sample.png
+python -m pip install -r document-builder/requirements.txt
+python -m pip install pymupdf   # для перевірки верстки PDF (tools/check_report.py)
 ```
+
+Якщо `pip` відмовляє через права або «externally-managed-environment», додайте `--user`. Word і LibreOffice через pip не встановлюються: без них агент здасть лише DOCX.
+
+## Як користуватися
+
+Попросіть агента, наприклад: «Зроби документ з описом API, код лежить у `src/`, схеми в `images/`». Агент сам прочитає `SKILL.md` і збере документ.
+
+Приблизно так виглядає код, який він напише:
+
+```python
+from DocumentStyles import DocumentStyles
+
+doc = DocumentStyles()
+doc.add_heading("Опис модуля")
+doc.add_paragraph(f"Основну функцію наведено в лістингу {doc.ref('lst', 'main')}.")
+doc.add_listing_from_file("src/main.py", caption="Основна функція", key="main")
+doc.add_image("schema.png", caption="Схема модуля")
+doc.save("Документ.docx", pdf=True)
+```
+
+Щоб змінити оформлення під свої вимоги, скопіюйте `styles_config.json` у папку проєкту і відредагуйте. Усі ключі описані в `document-builder/reference/config.md`, заповнення шаблону викладача — у `document-builder/reference/template.md`.
+
+Інструменти можна запускати й вручну:
+
+```
+python document-builder/tools/export_pdf.py Звіт.docx          # DOCX -> PDF після ручних правок у Word
+python document-builder/tools/check_report.py Звіт.pdf         # перевірка верстки готового PDF
+```
+
+## Структура репозиторію
+
+Поточна версія скіла: 2.2.1.
+
+| Папка | Для кого |
+|---|---|
+| `document-builder/` | Готовий скіл, саме його копіюють агенту |
+| `document-builder-dev/` | Повна версія для тих, хто хоче змінювати скіл: те саме плюс документація архітектури, тести й інструкції для агента-розробника |
+
+Вміст `document-builder/`:
+
+| Шлях | Призначення |
+|---|---|
+| `SKILL.md` | Інструкція для агента: підключення, API `doc.add_*`, залежності, правила оформлення |
+| `DocumentStyles.py` | Рушій: будує `.docx` через python-docx |
+| `styles_config.json` | Усе оформлення: шрифти, відступи, підписи, нумерація, поля титулки |
+| `DocumentBuilder.py` | Збирач: викликає розділи з `chapters/` і зберігає DOCX/PDF (`python DocumentBuilder.py [назва.docx] [--pdf]`) |
+| `chapters/` | Розділи документа, кожен із функцією `render(doc)`; `example_lab.py` — еталонний звіт лабораторної, `sample.sql` — його лістинг із коментарями, `chapter1.py` і `chapter2.py` — шаблони |
+| `code_comments.py` | Видалення коментарів із коду для лістингів |
+| `report_pdf.py` | Конвертація DOCX → PDF: Word, далі LibreOffice, далі docx2pdf |
+| `MML2OMML.XSL` | Перетворення MathML у формули Word |
+| `reference/config.md` | Довідник ключів `styles_config.json` |
+| `reference/template.md` | Заповнення готового шаблону `.docx` |
+| `tools/export_pdf.py` | Окрема конвертація DOCX → PDF |
+| `tools/check_report.py` | Перевірка PDF: висячі підписи, нумерація, заглушки, напівпорожні сторінки |
+| `images/sample.png` | Зображення для прикладів |
+| `requirements.txt` | Python-залежності |
+
+Додатково в `document-builder-dev/`:
+
+| Шлях | Призначення |
+|---|---|
+| `CLAUDE.md` | Правила для агента, що змінює скіл |
+| `docs/ARCHITECTURE.md` | Карта файлів, механізми, інваріанти, підводні камені python-docx і Word |
+| `tests/test_build.py` | Тести збірки, зокрема синхронізації `DEFAULT_CONFIG`, `styles_config.json` і `reference/config.md` |

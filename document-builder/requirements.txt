@@ -1,0 +1,9 @@
+python-docx>=1.1.0
+latex2mathml>=3.81.0
+lxml>=5.0.0
+matplotlib>=3.8.0
+Pillow>=10.0.0
+# optional: tools/check_report.py
+# pymupdf>=1.24
+# optional: fallback PDF converter if neither Word nor LibreOffice is available
+# docx2pdf
